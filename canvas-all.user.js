@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canvas All Info
 // @namespace    https://theusaf.github.io
-// @version      1.2.5
+// @version      1.2.6
 // @icon         https://canvas.instructure.com/favicon.ico
 // @copyright    2020-2021, Daniel Lau
 // @license      MIT
@@ -357,7 +357,7 @@ async function load() {
     // Get grades
     loadFrame(iFrameLoader, `/courses/${course.id}/grades`).then(
       (ClassGradeFrame) => {
-        const { document: d, window: w } = ClassGradeFrame;
+        const { document: d, window: w, frame } = ClassGradeFrame;
         let overallGrade = d
             .querySelector(
               "#student-grades-right-content .student_assignment.final_grade > .grade"
@@ -390,14 +390,15 @@ async function load() {
           overallGrade !== "N/A"
             ? `<span>${Letter} (${overallGrade}%)</span>`
             : `<span>N/A</span>`;
-        if (Object.keys(courseGrades).length === courses.length) {
-          // Done loading iframes all data, can remove any pointless memory now!
-          iFrameLoader.innerHTML = "";
-          for (const i in courseGrades) {
-            delete courseGrades[i];
-          }
-          overallGrade = titles = possiblePoints = dueDates = null;
+        // Done using data from iframe, attempt to clean up memory usage
+        overallGrade = titles = possiblePoints = dueDates = null;
+        for (const i in courseGrades) {
+          delete courseGrades[i];
         }
+        w.location = "about:blank";
+        setTimeout(() => {
+          frame.remove();
+        }, 500);
       }
     );
     // Get instructors
@@ -623,6 +624,7 @@ function loadFrame(iFrameLoader, src) {
       const frameContext = {
         document: mainFrame.contentDocument,
         window: mainFrame.contentWindow,
+        frame: mainFrame
       };
       res(frameContext);
     });

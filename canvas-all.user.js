@@ -4,6 +4,7 @@
 // @version      1.2.5
 // @icon         https://canvas.instructure.com/favicon.ico
 // @copyright    2020-2021, Daniel Lau
+// @license      MIT
 // @description  Place all information on a single page (https://canvas.example.com/all or https://example.instructure.com/all)
 // @author       theusaf
 // @include      /^https:\/\/canvas\.[a-z0-9]*?\.[a-z]*?\/all\/?(\?.*)?$/

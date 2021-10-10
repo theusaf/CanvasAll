@@ -11,3 +11,4 @@
 * Used Prettier formatter to format
 * Changed `osu` to `canvas`
     * Script works on all university canvas sites
+* Add icon for discussion topics

@@ -12,3 +12,8 @@
 * Changed `osu` to `canvas`
     * Script works on all university canvas sites
 * Add icon for discussion topics
+
+## v1.3.0
+
+* Improve removal of iframes to decrease the amount of memory used
+* Filters are preserved and restored

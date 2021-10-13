@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canvas All Info
 // @namespace    https://theusaf.github.io
-// @version      1.2.6
+// @version      1.3.0
 // @icon         https://canvas.instructure.com/favicon.ico
 // @copyright    2020-2021, Daniel Lau
 // @license      MIT
@@ -296,35 +296,46 @@ async function load() {
     ),
     statusFilterList = mainElement.querySelector(
       "#canvasall_assignment_filter_list_chosen"
-    );
+    ),
+    localStorageConfigStr = localStorage.canvasAllConfig ?? "{}",
+    localStorageConfig = JSON.parse(localStorageConfigStr);
 
-  // Filters
-  statusFilter.addEventListener("change", () => {
-    if (statusFilter.value === "") {
+  function hideType(value) {
+    if (value === "") {
       // ignore reset to empty value
       return;
     }
     const elem = statusFilter.querySelector(
-        `option[value="${statusFilter.value}"]`
+        `option[value="${value}"]`
       ),
       temp = document.createElement("template"),
-      now = Date.now();
+      now = `${Math.random()}`.substr(2);
+    if (!elem) {return;}
     temp.innerHTML = `<style id="canvasall_filter_${now}">
-      .canvasall_status_${statusFilter.value}{
+      .canvasall_status_${value}{
         display: none;
       }
     </style>`;
     document.body.append(temp.content.cloneNode(true));
     statusFilterList.append(elem);
+    localStorageConfig[value] = true;
+    localStorage.canvasAllConfig = JSON.stringify(localStorageConfig);
     statusFilter.value = "";
     function click() {
+      localStorageConfig[value] = false;
+      localStorage.canvasAllConfig = JSON.stringify(localStorageConfig);
       // remove style
       statusFilter.append(elem);
-      document.querySelector(`#canvasall_filter_${now}`).outerHTML = "";
+      document.querySelector(`#canvasall_filter_${now}`).remove();
       statusFilter.value = "";
       elem.removeEventListener("click", click);
     }
     elem.addEventListener("click", click);
+  }
+
+  // Filters
+  statusFilter.addEventListener("change", () => {
+    hideType(statusFilter.value);
   });
 
   // Begin writing class information
@@ -512,6 +523,14 @@ async function load() {
     </div>`;
     assignmentsDiv.append(template.content.cloneNode(true));
   }
+
+  // Restore hide
+  for (const [key, value] of Object.entries(localStorageConfig)) {
+    if (value && key !== "") {
+      hideType(key);
+    }
+  }
+
   courseAssignments.splice(0); // Free up memory
   document.querySelector("#canvasall_fetching_information").outerHTML = "";
 }

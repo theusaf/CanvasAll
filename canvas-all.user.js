@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canvas All Info
 // @namespace    https://theusaf.github.io
-// @version      1.3.0
+// @version      1.3.1
 // @icon         https://canvas.instructure.com/favicon.ico
 // @copyright    2020-2021, Daniel Lau
 // @license      MIT
@@ -360,11 +360,124 @@ async function load() {
   }
 
   log("Getting course assignments and grades");
+  let courseCount = 0,
+    finishedCollections = 0;
   for (const course of courses) {
-    courseAssignments.push.apply(
-      courseAssignments,
-      await getCourseAssignments(course.id, currentUserID)
-    );
+    courseCount++;
+    getCourseAssignments(course.id, currentUserID).then(assignments => {
+      courseAssignments.push.apply(
+        courseAssignments,
+        assignments
+      );
+      finishedCollections++;
+      if (finishedCollections === courseCount) {
+        // Write assignments
+        courseAssignments.sort((a, b) => {
+          // sort by "due date"
+          // also places non-due-date at end. (+1 week)
+          const dueA = new Date(
+              a.plannable.due_at || b.plannable.created_at || Date.now() + 604800e3
+            ),
+            dueB = new Date(
+              b.plannable.due_at || b.plannable.created_at || Date.now() + 604800e3
+            );
+          return dueA.getTime() - dueB.getTime();
+        });
+
+        log("Compiling assignments");
+        for (const assignment of courseAssignments) {
+          const template = document.createElement("template");
+          if (assignment.plannable_type === "announcement") {
+            // Put in announcement thing
+            template.innerHTML = `<div class="canvasall_announcement_wrapper">
+                <div class="canvasall_announcement_title">
+                  <a href="${assignment.html_url}">${assignment.plannable.title}</a>
+                </div>
+                <div class="canvasall_announcement_class">
+                  <a href="/courses/${assignment.course_id}">${
+              assignment.context_name
+            }</a>
+                </div>
+                <div class="canvasall_announcement_when">
+                  <span>${new Date(assignment.plannable.created_at)
+                    .toString()
+                    .split(" ")
+                    .slice(0, 5)
+                    .join(" ")
+                    .replace(/:\d{2}$/, "")
+                    .replace(/\s(?=\w{3}\s\d{2})/, ", ")
+                    .replace(/\d{4}/, "at")}</span>
+                </div>
+              </div>`;
+            announcementsDiv.append(template.content.cloneNode(true));
+            continue;
+          }
+          const divClasses = [],
+            { submissions } = assignment;
+          if (submissions) {
+            const { excused, graded, has_feedback, late, missing, submitted } =
+              submissions;
+            if (excused || graded) {
+              divClasses.push("canvasall_status_done");
+            }
+            if (submitted) {
+              divClasses.push("canvasall_status_submit");
+            }
+            if (late) {
+              divClasses.push("canvasall_status_late");
+            }
+            if (missing) {
+              divClasses.push("canvasall_status_missing");
+            }
+            if (has_feedback) {
+              divClasses.push("canvasall_status_feedback");
+            }
+          }
+
+          divClasses.push("canvasall_status_" + assignment.plannable_type);
+          template.innerHTML = `<div class="canvasall_assignment_wrapper ${divClasses.join(
+            " "
+          )}" class-id="${assignment.course_id}">
+            <div class="canvasall_assignment_title">
+              <div class="canvasall_assignment_icon canvasall_assignment_type_${
+                assignment.plannable_type
+              }"></div>
+              <a href="${assignment.html_url}">${assignment.plannable.title}</a>
+            </div>
+            <div class="canvasall_assignment_class">
+              <a href="/courses/${assignment.course_id}">${
+            assignment.context_name
+          }</a>
+            </div>
+            <div class="canvasall_assignment_due">
+              <span>${
+                assignment.plannable.due_at
+                  ? new Date(assignment.plannable.due_at)
+                      .toString()
+                      .split(" ")
+                      .slice(0, 5)
+                      .join(" ")
+                      .replace(/:\d{2}$/, "")
+                      .replace(/\s(?=\w{3}\s\d{2})/, ", ")
+                      .replace(/\d{4}/, "at")
+                  : "No due date"
+              }</span>
+            </div>
+          </div>`;
+          assignmentsDiv.append(template.content.cloneNode(true));
+        }
+
+        // Restore hide
+        for (const [key, value] of Object.entries(localStorageConfig)) {
+          if (value && key !== "") {
+            hideType(key);
+          }
+        }
+
+        courseAssignments.splice(0); // Free up memory
+        document.querySelector("#canvasall_fetching_information").outerHTML = "";
+      }
+    });
     // Get grades
     loadFrame(iFrameLoader, `/courses/${course.id}/grades`).then(
       (ClassGradeFrame) => {
@@ -428,111 +541,6 @@ async function load() {
         teacherDiv.innerHTML = "<span>No instructor found.</span>";
       });
   }
-  // Write assignments
-  courseAssignments.sort((a, b) => {
-    // sort by "due date"
-    // also places non-due-date at end. (+1 week)
-    const dueA = new Date(
-        a.plannable.due_at || b.plannable.created_at || Date.now() + 604800e3
-      ),
-      dueB = new Date(
-        b.plannable.due_at || b.plannable.created_at || Date.now() + 604800e3
-      );
-    return dueA.getTime() - dueB.getTime();
-  });
-
-  log("Compiling assignments");
-  for (const assignment of courseAssignments) {
-    const template = document.createElement("template");
-    if (assignment.plannable_type === "announcement") {
-      // Put in announcement thing
-      template.innerHTML = `<div class="canvasall_announcement_wrapper">
-          <div class="canvasall_announcement_title">
-            <a href="${assignment.html_url}">${assignment.plannable.title}</a>
-          </div>
-          <div class="canvasall_announcement_class">
-            <a href="/courses/${assignment.course_id}">${
-        assignment.context_name
-      }</a>
-          </div>
-          <div class="canvasall_announcement_when">
-            <span>${new Date(assignment.plannable.created_at)
-              .toString()
-              .split(" ")
-              .slice(0, 5)
-              .join(" ")
-              .replace(/:\d{2}$/, "")
-              .replace(/\s(?=\w{3}\s\d{2})/, ", ")
-              .replace(/\d{4}/, "at")}</span>
-          </div>
-        </div>`;
-      announcementsDiv.append(template.content.cloneNode(true));
-      continue;
-    }
-    const divClasses = [],
-      { submissions } = assignment;
-    if (submissions) {
-      const { excused, graded, has_feedback, late, missing, submitted } =
-        submissions;
-      if (excused || graded) {
-        divClasses.push("canvasall_status_done");
-      }
-      if (submitted) {
-        divClasses.push("canvasall_status_submit");
-      }
-      if (late) {
-        divClasses.push("canvasall_status_late");
-      }
-      if (missing) {
-        divClasses.push("canvasall_status_missing");
-      }
-      if (has_feedback) {
-        divClasses.push("canvasall_status_feedback");
-      }
-    }
-
-    divClasses.push("canvasall_status_" + assignment.plannable_type);
-    template.innerHTML = `<div class="canvasall_assignment_wrapper ${divClasses.join(
-      " "
-    )}" class-id="${assignment.course_id}">
-      <div class="canvasall_assignment_title">
-        <div class="canvasall_assignment_icon canvasall_assignment_type_${
-          assignment.plannable_type
-        }"></div>
-        <a href="${assignment.html_url}">${assignment.plannable.title}</a>
-      </div>
-      <div class="canvasall_assignment_class">
-        <a href="/courses/${assignment.course_id}">${
-      assignment.context_name
-    }</a>
-      </div>
-      <div class="canvasall_assignment_due">
-        <span>${
-          assignment.plannable.due_at
-            ? new Date(assignment.plannable.due_at)
-                .toString()
-                .split(" ")
-                .slice(0, 5)
-                .join(" ")
-                .replace(/:\d{2}$/, "")
-                .replace(/\s(?=\w{3}\s\d{2})/, ", ")
-                .replace(/\d{4}/, "at")
-            : "No due date"
-        }</span>
-      </div>
-    </div>`;
-    assignmentsDiv.append(template.content.cloneNode(true));
-  }
-
-  // Restore hide
-  for (const [key, value] of Object.entries(localStorageConfig)) {
-    if (value && key !== "") {
-      hideType(key);
-    }
-  }
-
-  courseAssignments.splice(0); // Free up memory
-  document.querySelector("#canvasall_fetching_information").outerHTML = "";
 }
 
 // /api/v1/users/:user_id/communication_channels
@@ -571,32 +579,51 @@ function getCourses() {
  * @returns {Promise<Array>} The list of assignments
  */
 function getCourseAssignments(courseID, userID) {
-  return new Promise((res, rej) => {
-    const x = new XMLHttpRequest(),
-      now = new Date(),
-      offset = now.getTimezoneOffset() / 60;
-    now.addDays(-14);
-    now.setHours(8 - offset);
-    now.setMinutes(0);
-    now.setSeconds(0);
-    now.setMilliseconds(0);
-    x.open(
-      "GET",
-      `/api/v1/planner/items?start_date=${now.toISOString()}&order=asc&context_codes[]=course_${courseID}` //&context_codes[]=user_${userID}
-    );
-    x.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-    x.setRequestHeader(
-      "accept",
-      "application/json+canvas-string-ids, application/json+canvas-string-ids, application/json, text/plain, */*"
-    );
-    x.onerror = () => {
-      rej();
-    };
-    x.onload = () => {
-      res(JSON.parse(x.responseText));
-    };
-    x.send();
-  });
+  const x = new XMLHttpRequest(),
+    now = new Date(),
+    offset = now.getTimezoneOffset() / 60,
+    nextUrlRegex = /[^<>]*(?=>; rel="next")/;
+  now.addDays(-14); // To get assignments from 2 weeks ago
+  now.setHours(8 - offset);
+  now.setMinutes(0);
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+
+  function makeHttpRequest(url) {
+    return new Promise((res, rej) => {
+      x.open("GET", url);
+      x.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+      x.setRequestHeader(
+        "accept",
+        "application/json+canvas-string-ids, application/json+canvas-string-ids, application/json, text/plain, */*"
+      );
+      x.onerror = () => {rej();}
+      x.onload = () => {
+        res(x);
+      }
+      x.send();
+    });
+  }
+
+  async function gatherRecursiveRequests(url, list = []) {
+    const response = await makeHttpRequest(url),
+      data = JSON.parse(response.responseText),
+      linkHeader = response.getResponseHeader("link");
+    list.push(...data);
+    if (linkHeader) {
+      const lastLink = linkHeader.match(nextUrlRegex);
+      if (lastLink) {
+        return gatherRecursiveRequests(lastLink[0], list);
+      } else {
+        return list;
+      }
+    } else {
+      return list;
+    }
+  }
+
+  return gatherRecursiveRequests(`/api/v1/planner/items?start_date=${now.toISOString()}&order=asc&context_codes[]=course_${courseID}`) //&context_codes[]=user_${userID}
+    .catch(() => []);
 }
 
 /**

@@ -17,3 +17,8 @@
 
 * Improve removal of iframes to decrease the amount of memory used
 * Filters are preserved and restored
+
+## v1.3.1
+
+* The page loads a bit faster
+* All assignments are retrieved

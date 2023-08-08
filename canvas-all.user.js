@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canvas All Info
 // @namespace    https://theusaf.github.io
-// @version      1.3.1
+// @version      1.3.2
 // @icon         https://canvas.instructure.com/favicon.ico
 // @copyright    2020-2021, Daniel Lau
 // @license      MIT
@@ -9,6 +9,7 @@
 // @author       theusaf
 // @include      /^https:\/\/canvas\.[a-z0-9]*?\.[a-z]*?\/all\/?(\?.*)?$/
 // @include      /^https:\/\/[a-z0-9]*?\.instructure\.com\/all\/?(\?.*)?$/
+// @inject-into  page
 // @grant        none
 // ==/UserScript==
 

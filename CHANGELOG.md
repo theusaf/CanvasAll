@@ -22,3 +22,8 @@
 
 * The page loads a bit faster
 * All assignments are retrieved
+
+## v1.4.0
+
+* Filters now work on Firefox
+* Grades now show properly if grade letters are not supported

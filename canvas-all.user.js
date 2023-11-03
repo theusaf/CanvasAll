@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canvas All Info
 // @namespace    https://theusaf.github.io
-// @version      1.3.2
+// @version      1.4.0
 // @icon         https://canvas.instructure.com/favicon.ico
 // @copyright    2020-2021, Daniel Lau
 // @license      MIT
@@ -302,36 +302,45 @@ async function load() {
     localStorageConfig = JSON.parse(localStorageConfigStr);
 
   function hideType(value) {
+    console.log(`Hiding '${value}'`);
     if (value === "") {
       // ignore reset to empty value
+      console.log("Ignoring empty value");
       return;
     }
     const elem = statusFilter.querySelector(
         `option[value="${value}"]`
       ),
       temp = document.createElement("template"),
-      now = `${Math.random()}`.substr(2);
-    if (!elem) {return;}
+      now = `${Math.random()}`.substring(2);
+    if (!elem) {
+      console.error("Could not find element");
+      return;
+    }
     temp.innerHTML = `<style id="canvasall_filter_${now}">
       .canvasall_status_${value}{
         display: none;
       }
     </style>`;
-    document.body.append(temp.content.cloneNode(true));
-    statusFilterList.append(elem);
     localStorageConfig[value] = true;
     localStorage.canvasAllConfig = JSON.stringify(localStorageConfig);
-    statusFilter.value = "";
+    setTimeout(() => {
+      document.body.append(temp.content.cloneNode(true));
+      statusFilterList.append(elem);
+      elem.addEventListener("click", click);
+      statusFilter.value = "";
+    });
     function click() {
       localStorageConfig[value] = false;
       localStorage.canvasAllConfig = JSON.stringify(localStorageConfig);
       // remove style
-      statusFilter.append(elem);
       document.querySelector(`#canvasall_filter_${now}`).remove();
-      statusFilter.value = "";
       elem.removeEventListener("click", click);
+      setTimeout(() => {
+        statusFilter.append(elem);
+        statusFilter.value = "";
+      });
     }
-    elem.addEventListener("click", click);
   }
 
   // Filters
@@ -503,17 +512,17 @@ async function load() {
           ),
           { ENV } = w,
           { grading_scheme } = ENV,
-          [Letter] =
-            grading_scheme.find((scheme) => {
+          [letter] =
+            (grading_scheme ?? ["N/A", 0]).find((scheme) => {
               try {
                 return +overallGrade / 100 >= scheme[1];
               } catch (e) {
                 console.error(e);
               }
-            }) || "?";
+            }) ?? ["?"];
         gradeDiv.innerHTML =
-          overallGrade !== "N/A"
-            ? `<span>${Letter} (${overallGrade}%)</span>`
+          overallGrade !== "N/A" && overallGrade
+            ? `<span>${letter} (${overallGrade}%)</span>`
             : `<span>N/A</span>`;
         // Done using data from iframe, attempt to clean up memory usage
         overallGrade = titles = possiblePoints = dueDates = null;
